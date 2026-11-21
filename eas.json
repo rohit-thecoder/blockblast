@@ -1,0 +1,17 @@
+{
+  "cli": { "version": ">= 16.0.0", "appVersionSource": "remote" },
+  "build": {
+    "development": { "developmentClient": true, "distribution": "internal", "android": { "buildType": "apk" }, "env": {
+        "EXPO_PUBLIC_ADMOB_ANDROID_APP_ID": "ca-app-pub-6575366284458197~8023603789"
+      } },
+    "preview": { "distribution": "internal", "android": { "buildType": "apk" } },
+    "production": { "autoIncrement": true, "android": { "buildType": "app-bundle" }, "env": {
+        "EXPO_PUBLIC_ADMOB_ANDROID_APP_ID": "ca-app-pub-6575366284458197~8023603789",
+        "EXPO_PUBLIC_ADMOB_BANNER_ID": "ca-app-pub-6575366284458197/1748346184",
+        "EXPO_PUBLIC_ADMOB_INTERSTITIAL_ID": "ca-app-pub-6575366284458197/5496019504",
+        "EXPO_PUBLIC_ADMOB_REWARDED_ID": "ca-app-pub-6575366284458197/4591625234"
+      } }
+  },
+  
+  "submit": { "production": {} }
+}
