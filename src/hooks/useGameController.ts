@@ -3,7 +3,7 @@ import { Alert, AppState } from 'react-native';
 import { createGame, declineRevive, hasNextLevel, placeAt, revive } from '../game/engine/engine';
 import { feedbackLabel } from '../game/engine/scoring';
 import { LEVEL_COUNT } from '../game/levels/levels';
-import { initAds, showInterstitial, showRewarded } from '../services/ads';
+import { initAds, showInterstitial } from '../services/ads';
 import { initAudio, play, releaseAudio, setSoundEnabled } from '../services/audio';
 import { hapticClear, hapticDrop, hapticError, setHapticsEnabled } from '../services/haptics';
 import { configureNotifications, scheduleReminders, setRemindersEnabled } from '../services/notifications';
@@ -53,11 +53,23 @@ export function useGameController() {
       setReady(true);
       void initAudio();
       initAds();
-      if (data.settings.notifications) void scheduleReminders();
+
+      // Pehli baar app open hone par automatic permission maang kar din mein 2 baar schedule karein
+      if (!data.notif.asked) {
+        const granted = await setRemindersEnabled(true);
+        const updated: SaveData = {
+          ...data,
+          settings: { ...data.settings, notifications: granted },
+          notif: { scheduled: granted, asked: true },
+        };
+        if (alive) commitSave(updated);
+      } else if (data.settings.notifications) {
+        void scheduleReminders();
+      }
     })();
     const sub = AppState.addEventListener('change', (st) => { if (st === 'active') void initAudio(); });
     return () => { alive = false; sub.remove(); releaseAudio(); };
-  }, []);
+  }, [commitSave]);
 
   // Persist best score / level progress
   useEffect(() => {
@@ -119,24 +131,6 @@ export function useGameController() {
       }
     }
     return true;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Rewarded Ad Power-up: clears 2 fullest rows & 1 column + 50 pts
-  const triggerBombPowerup = useCallback(() => {
-    const shown = showRewarded(() => {
-      const g = gameRef.current;
-      if (!g) return;
-      const { state, result } = revive(g);
-      if (result.ok) {
-        gameRef.current = state;
-        setGame(state);
-        play('combo');
-        emit(result);
-      }
-    });
-    if (!shown) {
-      Alert.alert('Ad Loading', 'Video ad abhi load ho raha hai, 2 second baad try karein!');
-    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startNew = useCallback((mode: Mode, level: number) => {
@@ -212,6 +206,5 @@ export function useGameController() {
     setMode,
     setNotifications,
     replay: restart,
-    triggerBombPowerup,
   };
 }

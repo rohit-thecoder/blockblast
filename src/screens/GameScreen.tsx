@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,11 +36,10 @@ export default function GameScreen() {
 
   const measure = useCallback(() => {
     boardRef.current?.measureInWindow((x, y) => {
-      const topOffset = Platform.OS === 'android' ? Math.max(StatusBar.currentHeight ?? 0, insets.top) : 0;
       boardX.value = x + 2;
-      boardY.value = y + 2 + topOffset;
+      boardY.value = y + 2;
     });
-  }, [boardX, boardY, insets.top]);
+  }, [boardX, boardY]);
 
   useEffect(() => {
     const t = setTimeout(measure, 150);
@@ -110,20 +109,9 @@ export default function GameScreen() {
           <Text style={styles.best}>{game.best}</Text>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <Pressable
-            onPress={c.triggerBombPowerup}
-            style={({ pressed }) => [styles.bombBtn, pressed && { opacity: 0.8 }]}
-            accessibilityLabel="Watch ad to clear lines"
-          >
-            <Text style={styles.bombText}>💣 CLEAR</Text>
-            <View style={styles.adBadge}><Text style={styles.adBadgeText}>AD</Text></View>
-          </Pressable>
-
-          <Pressable onPress={() => setShowSettings(true)} hitSlop={14} accessibilityLabel="Settings" accessibilityRole="button">
-            <Ionicons name="settings-sharp" size={32} color="#BBD3F5" />
-          </Pressable>
-        </View>
+        <Pressable onPress={() => setShowSettings(true)} hitSlop={14} accessibilityLabel="Settings" accessibilityRole="button">
+          <Ionicons name="settings-sharp" size={32} color="#BBD3F5" />
+        </Pressable>
       </View>
 
       {/* Score / Collect counters */}
@@ -219,20 +207,6 @@ const styles = StyleSheet.create({
   crown: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   crownIcon: { fontSize: 30 },
   best: { color: theme.gold, fontSize: 26, fontWeight: '900', textShadowColor: '#0006', textShadowRadius: 3, textShadowOffset: { width: 0, height: 2 } },
-  bombBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FACC15',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    gap: 6,
-    borderBottomWidth: 3,
-    borderBottomColor: '#CA9A04',
-  },
-  bombText: { color: '#3B2A00', fontWeight: '900', fontSize: 13 },
-  adBadge: { backgroundColor: '#1E2440', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 5 },
-  adBadgeText: { color: '#FACC15', fontWeight: '900', fontSize: 10 },
   score: { color: '#fff', fontSize: 54, fontWeight: '900', marginVertical: 4, textShadowColor: '#0003', textShadowRadius: 4, textShadowOffset: { width: 0, height: 3 } },
   counters: { flexDirection: 'row', gap: 28, marginTop: 6 },
   counter: { color: theme.gold, fontSize: 38, fontWeight: '900', textShadowColor: '#0004', textShadowRadius: 4, textShadowOffset: { width: 0, height: 2 } },
