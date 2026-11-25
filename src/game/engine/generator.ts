@@ -5,9 +5,10 @@ import { GRID } from '../../constants/theme';
 
 export type Phase = 'boost' | 'normal' | 'kill';
 
-/** Always keep game rewarding and playable without punishing kill streaks */
-export function pickPhase(boostLeft: number, _score: number, _best: number): Phase {
+/** Helpful opening trays, then a late-game pressure phase near the player best. */
+export function pickPhase(boostLeft: number, score: number, best: number): Phase {
   if (boostLeft > 0) return 'boost';
+  if (best > 0 && score >= best * 0.85) return 'kill';
   return 'normal';
 }
 
@@ -53,14 +54,16 @@ export function generateShapes(grid: Grid, phase: Phase, rand: Rand): Shape[] {
     while (chosen.length < 3)
       add(weightedPick(infos, (i) => (i.fits ? (i.shape.tier === 'hard' ? 0.35 : 1.2) : 0.1), rand, used));
   } else {
-    // Prefer pieces that actually fit on the current board so the endless loop stays smooth
     while (chosen.length < 3) {
       add(
         weightedPick(
           infos,
           (i) => {
-            const base = { easy: 2.2, medium: 2.0, hard: 1.0 }[i.shape.tier];
-            return base * (i.fits ? 2.5 : 0.25) * (i.completes ? 1.4 : 1);
+            const base = phase === 'kill'
+              ? { easy: 0.35, medium: 0.8, hard: 5.5 }[i.shape.tier]
+              : { easy: 2.2, medium: 2.0, hard: 1.0 }[i.shape.tier];
+            const fitWeight = phase === 'kill' ? (i.fits ? 1.3 : 0.4) : (i.fits ? 2.5 : 0.25);
+            return base * fitWeight * (i.completes ? 1.4 : 1);
           },
           rand,
           used

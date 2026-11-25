@@ -6,12 +6,12 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "dark",
-    "scheme": "blockblastpuzzle",
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#4B62B8"
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
     },
+    "scheme": "blockblastpuzzle",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.infineticstudios.blockblast"
@@ -33,6 +33,14 @@
     "plugins": [
       "expo-audio",
       "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#4B62B8"
+        }
+      ],
       [
         "expo-notifications",
         {

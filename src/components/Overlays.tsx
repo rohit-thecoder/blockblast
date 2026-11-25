@@ -81,6 +81,7 @@ function Row({ label, value, onChange }: { label: string; value: boolean; onChan
 export function SettingsModal(p: {
   settings: Settings; level: number;
   onChange: (patch: Partial<Settings>) => void; onNotifications: (on: boolean) => void;
+  notificationsAvailable: boolean;
   onMode: (m: Mode) => void; onRestart: () => void; onClose: () => void;
 }) {
   const { settings } = p;
@@ -92,7 +93,7 @@ export function SettingsModal(p: {
       </View>
       <Row label="Sound" value={settings.sound} onChange={(v) => p.onChange({ sound: v })} />
       <Row label="Haptics" value={settings.haptics} onChange={(v) => p.onChange({ haptics: v })} />
-      <Row label="Daily reminders" value={settings.notifications} onChange={p.onNotifications} />
+      {p.notificationsAvailable ? <Row label="Daily reminders" value={settings.notifications} onChange={p.onNotifications} /> : null}
       <Text style={styles.rowLabel}>Mode</Text>
       <View style={styles.segment}>
         {(['classic', 'collect'] as Mode[]).map((m) => (

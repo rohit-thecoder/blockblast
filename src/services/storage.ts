@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Mode, Settings } from '../types';
+import { getStoredItem, setStoredItem } from './storageBackend';
 
 const KEY = 'blockblast:save';
 export const SCHEMA_VERSION = 1;
@@ -20,38 +20,42 @@ export const defaultSave = (): SaveData => ({
   notif: { scheduled: false, asked: false },
 });
 
-const bool = (v: unknown, d: boolean) => (typeof v === 'boolean' ? v : d);
-const int = (v: unknown, d: number, min = 0) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(min, Math.floor(v)) : d);
+const bool = (value: unknown, fallback: boolean) => (typeof value === 'boolean' ? value : fallback);
+const int = (value: unknown, fallback: number, min = 0) =>
+  (typeof value === 'number' && Number.isFinite(value) ? Math.max(min, Math.floor(value)) : fallback);
 
-/** Validates unknown JSON into a safe SaveData (defaults for anything missing/corrupt). */
+/** Validates unknown JSON into safe, forward-compatible save data. */
 export function sanitize(raw: unknown): SaveData {
-  const d = defaultSave();
-  if (!raw || typeof raw !== 'object') return d;
-  const o = raw as Record<string, any>;
-  const s = (o.settings ?? {}) as Record<string, unknown>;
-  const n = (o.notif ?? {}) as Record<string, unknown>;
-  const mode: Mode = s.mode === 'collect' ? 'collect' : 'classic';
+  const defaults = defaultSave();
+  if (!raw || typeof raw !== 'object') return defaults;
+  const value = raw as Record<string, unknown>;
+  const settings = (value.settings ?? {}) as Record<string, unknown>;
+  const notification = (value.notif ?? {}) as Record<string, unknown>;
+  const mode: Mode = settings.mode === 'collect' ? 'collect' : 'classic';
   return {
     version: SCHEMA_VERSION,
-    best: int(o.best, 0),
-    collectLevel: int(o.collectLevel, 1, 1),
+    best: int(value.best, 0),
+    collectLevel: int(value.collectLevel, 1, 1),
     settings: {
-      sound: bool(s.sound, d.settings.sound), haptics: bool(s.haptics, d.settings.haptics),
-      notifications: bool(s.notifications, false), mode,
+      sound: bool(settings.sound, defaults.settings.sound),
+      haptics: bool(settings.haptics, defaults.settings.haptics),
+      notifications: bool(settings.notifications, false),
+      mode,
     },
-    notif: { scheduled: bool(n.scheduled, false), asked: bool(n.asked, false) },
+    notif: { scheduled: bool(notification.scheduled, false), asked: bool(notification.asked, false) },
   };
 }
 
 export async function loadSave(): Promise<SaveData> {
   try {
-    const txt = await AsyncStorage.getItem(KEY);
-    return txt ? sanitize(JSON.parse(txt)) : defaultSave();
-  } catch {
-    return defaultSave();
-  }
+    const text = await getStoredItem(KEY);
+    return text ? sanitize(JSON.parse(text)) : defaultSave();
+  } catch { return defaultSave(); }
 }
 
 export async function writeSave(data: SaveData): Promise<boolean> {
-  try { await AsyncStorage.setItem(KEY, JSON.stringify(data)); return true; } catch { return false; }
+  try {
+    await setStoredItem(KEY, JSON.stringify(data));
+    return true;
+  } catch { return false; }
 }
