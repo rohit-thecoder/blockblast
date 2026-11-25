@@ -55,83 +55,15 @@ export function createGame(mode: Mode, level: number, best: number, seed = (Date
 
 const noResult: PlaceResult = { ok: false, rows: [], cols: [], clearedCells: [], gained: 0, combo: 0, newBest: false };
 
-/**
- * Endless / Continuous Loop Handler:
- * Never triggers 'revive' or 'over' interruptions.
- * If remaining tray pieces cannot fit on the board, automatically clears the fullest lines
- * and refreshes the tray with fitting pieces while preserving score, best, and combo!
- */
-function ensurePlayableEndless(s: GameState): { state: GameState; autoCleared: { rows: number[]; cols: number[]; removed: { r: number; c: number; cell: { color: any; special?: any } }[] } } {
+/** Moves the game to its documented revive/game-over state when no tray piece fits. */
+function resolveBlockedState(s: GameState): GameState {
   if (s.mode === 'collect' && s.collected.star >= s.targets.star && s.collected.gem >= s.targets.gem) {
-    return { state: { ...s, status: 'won' }, autoCleared: { rows: [], cols: [], removed: [] } };
+    return { ...s, status: 'won' };
   }
-
-  let cur: GameState = { ...s, status: 'playing', revived: false };
-  const autoRows: number[] = [];
-  const autoCols: number[] = [];
-  const autoRemoved: { r: number; c: number; cell: { color: any; special?: any } }[] = [];
-
-  let guard = 0;
-  while (guard++ < 6) {
-    const remaining = cur.tray.filter((p): p is Piece => !!p);
-    if (remaining.length === 0) {
-      cur = dealTray(cur);
-      continue;
-    }
-    if (remaining.some((p) => canPlaceAnywhere(cur.grid, p))) {
-      break;
-    }
-
-    // Board is too tight for current pieces: clear 2 fullest rows & 2 fullest cols smoothly
-    const rank = (n: number, f: (i: number) => number) =>
-      Array.from({ length: n }, (_, i) => i).sort((a, b) => f(b) - f(a) || a - b);
-
-    const rows = rank(GRID, (r) => rowFill(cur.grid, r)).filter((r) => rowFill(cur.grid, r) > 0).slice(0, 2);
-    const cols = rank(GRID, (c) => colFill(cur.grid, c)).filter((c) => colFill(cur.grid, c) > 0).slice(0, 2);
-
-    if (rows.length === 0 && cols.length === 0) {
-      // Fallback: reset board grid keeping score & best intact
-      cur = { ...cur, grid: emptyGrid(), boostLeft: BOOST_TRAYS };
-      cur = dealTray(cur);
-      break;
-    }
-
-    const { grid, removed } = clearLines(cur.grid, rows, cols);
-    const collected = { ...cur.collected };
-    removed.forEach(({ cell }) => {
-      if (cell.special) collected[cell.special]++;
-    });
-
-    autoRows.push(...rows);
-    autoCols.push(...cols);
-    autoRemoved.push(...removed);
-
-    cur = {
-      ...cur,
-      grid,
-      collected,
-      boostLeft: BOOST_TRAYS,
-    };
-    // Deal fresh fitting tray pieces for the cleared space
-    cur = dealTray(cur);
-  }
-
-  // Final safety net: if still blocked after 6 passes, clear board keeping score/best
-  const finalRemaining = cur.tray.filter((p): p is Piece => !!p);
-  if (!finalRemaining.some((p) => canPlaceAnywhere(cur.grid, p))) {
-    cur = { ...cur, grid: emptyGrid(), boostLeft: BOOST_TRAYS };
-    cur = dealTray(cur);
-  }
-
-  cur.status = 'playing';
-  return {
-    state: cur,
-    autoCleared: {
-      rows: Array.from(new Set(autoRows)),
-      cols: Array.from(new Set(autoCols)),
-      removed: autoRemoved,
-    },
-  };
+  const remaining = s.tray.filter((piece): piece is Piece => !!piece);
+  if (remaining.some((piece) => canPlaceAnywhere(s.grid, piece))) return { ...s, status: 'playing' };
+  if (s.mode === 'classic' && !s.revived) return { ...s, status: 'revive' };
+  return { ...s, status: 'over' };
 }
 
 export function placeAt(state: GameState, slot: number, row: number, col: number): { state: GameState; result: PlaceResult } {
@@ -168,12 +100,9 @@ export function placeAt(state: GameState, slot: number, row: number, col: number
     next = dealTray(next);
   }
 
-  const ensured = ensurePlayableEndless(next);
-  next = ensured.state;
+  next = resolveBlockedState(next);
 
-  const allRows = Array.from(new Set([...rows, ...ensured.autoCleared.rows]));
-  const allCols = Array.from(new Set([...cols, ...ensured.autoCleared.cols]));
-  const allCleared = [...removed, ...ensured.autoCleared.removed].map(({ r, c, cell }) => ({
+  const clearedCells = removed.map(({ r, c, cell }) => ({
     r,
     c,
     color: cell.color,
@@ -183,9 +112,9 @@ export function placeAt(state: GameState, slot: number, row: number, col: number
     state: next,
     result: {
       ok: true,
-      rows: allRows,
-      cols: allCols,
-      clearedCells: allCleared,
+      rows,
+      cols,
+      clearedCells,
       gained,
       combo,
       newBest,
@@ -193,8 +122,8 @@ export function placeAt(state: GameState, slot: number, row: number, col: number
   };
 }
 
-/** Kept for backward compatibility; clears fullest lines without ending game */
 export function revive(state: GameState): { state: GameState; result: PlaceResult } {
+  if (state.status !== 'revive' || state.revived) return { state, result: noResult };
   const rank = (n: number, f: (i: number) => number) =>
     Array.from({ length: n }, (_, i) => i).sort((a, b) => f(b) - f(a) || a - b);
   const rows = rank(GRID, (r) => rowFill(state.grid, r)).slice(0, 2);
@@ -208,13 +137,13 @@ export function revive(state: GameState): { state: GameState; result: PlaceResul
     collected,
     score: state.score + REVIVE_BONUS,
     best: Math.max(state.best, state.score + REVIVE_BONUS),
-    revived: false,
+    revived: true,
     status: 'playing',
     combo: 0,
     boostLeft: BOOST_TRAYS,
   };
   next = dealTray(next);
-  next = ensurePlayableEndless(next).state;
+  next = resolveBlockedState(next);
   return {
     state: next,
     result: {
@@ -230,7 +159,7 @@ export function revive(state: GameState): { state: GameState; result: PlaceResul
 }
 
 export function declineRevive(state: GameState): GameState {
-  return ensurePlayableEndless({ ...state, status: 'playing' }).state;
+  return state.status === 'revive' ? { ...state, status: 'over' } : state;
 }
 
 export const hasNextLevel = (level: number) => level < LEVEL_COUNT;

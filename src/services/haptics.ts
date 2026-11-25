@@ -1,11 +1,7 @@
-import * as Haptics from 'expo-haptics';
-
+/** TypeScript/Jest fallback; Metro resolves the native or web implementation. */
 let enabled = true;
-export const setHapticsEnabled = (v: boolean) => { enabled = v; };
-const run = (fn: () => Promise<void>) => { if (enabled) fn().catch(() => {}); };
-
-export const hapticPickup = () => run(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light));
-export const hapticDrop = () => run(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium));
-export const hapticClear = (lines: number) =>
-  run(() => (lines > 1 ? Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success) : Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)));
-export const hapticError = () => run(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error));
+export const setHapticsEnabled = (value: boolean) => { enabled = value; };
+export const hapticPickup = () => { if (enabled) return; };
+export const hapticDrop = () => { if (enabled) return; };
+export const hapticClear = (_lines: number) => { if (enabled) return; };
+export const hapticError = () => { if (enabled) return; };

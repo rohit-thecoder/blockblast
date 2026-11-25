@@ -4,24 +4,27 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInUp, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
-import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 import { Board, type Hover } from '../components/Board';
 import { Effects, type Burst } from '../components/Effects';
-import { NewBestBanner, SettingsModal, WinModal } from '../components/Overlays';
+import { GameOverModal, NewBestBanner, ReviveModal, SettingsModal, WinModal } from '../components/Overlays';
 import { TrayPiece } from '../components/TrayPiece';
 import { GRID, theme } from '../constants/theme';
 import { hasNextLevel } from '../game/engine/engine';
 import { previewLines, canPlace } from '../game/engine/board';
 import { useGameController } from '../hooks/useGameController';
-import { BANNER_AD_ID } from '../services/ads';
+import { AdBanner } from '../services/ads';
 import { hapticPickup } from '../services/haptics';
 import { play } from '../services/audio';
+import { notificationsAvailable } from '../services/notifications';
 
 export default function GameScreen() {
   const c = useGameController();
-  const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const cell = Math.floor(Math.min(width - 28, 440) / GRID);
+  const { width, height } = useWindowDimensions();
+  const horizontalCell = Math.floor(Math.min(width - 28, 440) / GRID);
+  // Keep the board playable inside short landscape and embedded browser viewports.
+  const verticalCell = Math.floor((height - insets.top - insets.bottom - 220) / GRID);
+  const cell = Math.max(24, Math.min(horizontalCell, verticalCell));
   const boardPx = cell * GRID + 4;
   const slotSize = Math.floor(boardPx / 3);
 
@@ -44,7 +47,7 @@ export default function GameScreen() {
   useEffect(() => {
     const t = setTimeout(measure, 150);
     return () => clearTimeout(t);
-  }, [measure, width, insets.top]);
+  }, [measure, width, height, insets.top, insets.bottom]);
 
   // Effects on line clear
   const popScale = useSharedValue(1);
@@ -98,7 +101,7 @@ export default function GameScreen() {
   }
 
   const collect = game.mode === 'collect';
-  const locked = game.status === 'won';
+  const locked = game.status !== 'playing' || c.transitioning;
 
   return (
     <LinearGradient colors={[theme.bgTop, theme.bgBottom]} style={[styles.fill, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 4 }]}>
@@ -168,11 +171,7 @@ export default function GameScreen() {
 
       {/* Bottom Sticky Banner Ad */}
       <View style={styles.bannerContainer}>
-        <BannerAd
-          unitId={BANNER_AD_ID}
-          size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-          requestOptions={{ requestNonPersonalizedAdsOnly: false }}
-        />
+        <AdBanner />
       </View>
 
       {/* Brief New Best Banner */}
@@ -185,6 +184,14 @@ export default function GameScreen() {
         <WinModal level={game.level} last={!hasNextLevel(game.level)} onNext={c.nextLevel} onReplay={c.replay} />
       )}
 
+      {game.status === 'revive' && (
+        <ReviveModal score={game.score} best={game.best} onRevive={c.doRevive} onDecline={c.decline} />
+      )}
+
+      {game.status === 'over' && (
+        <GameOverModal score={game.score} best={game.best} onPlayAgain={c.replay} />
+      )}
+
       {/* Settings Modal */}
       {showSettings && (
         <SettingsModal
@@ -192,8 +199,9 @@ export default function GameScreen() {
           level={c.save.collectLevel}
           onChange={c.changeSettings}
           onNotifications={c.setNotifications}
+          notificationsAvailable={notificationsAvailable}
           onMode={(m) => { c.setMode(m); setShowSettings(false); }}
-          onRestart={() => { c.restart(); setShowSettings(false); }}
+          onRestart={() => { void c.restart(); setShowSettings(false); }}
           onClose={() => setShowSettings(false)}
         />
       )}

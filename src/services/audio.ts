@@ -35,6 +35,16 @@ export function play(name: SoundName) {
   } catch { /* silent fallback */ }
 }
 
+/** Poki commercial breaks must not compete with game audio. */
+export function pauseAudio() {
+  (Object.keys(players) as SoundName[]).forEach((key) => {
+    try { players[key]?.pause(); } catch { /* an individual sound may have finished already */ }
+  });
+}
+
+/** This game has effect sounds rather than continuous music, so playback resumes on the next interaction. */
+export function resumeAudio() {}
+
 export function releaseAudio() {
   (Object.keys(players) as SoundName[]).forEach((k) => { try { players[k]?.remove(); } catch {} delete players[k]; });
   ready = false;
